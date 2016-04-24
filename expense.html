@@ -1,0 +1,189 @@
+<html>
+<head>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="expense_log.js"></script>
+<style>
+.arc path {
+  stroke: #fff;
+}
+
+body {
+	color: #669;
+	font-family: "Lucida Sans Unicode","Lucida Grande",sans-serif;
+	font-size: 12px;
+} 
+
+table {
+	font-size: 12px;
+    background: #fff none repeat scroll 0 0;
+    border-collapse: collapse;
+    margin: 20px;
+    text-align: left;
+}
+
+th {
+    border-bottom: 2px solid #6678b1;
+    color: #039;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 10px 8px;
+}
+
+td {
+    border-bottom: 1px solid #ccc;
+    padding: 6px 8px;
+}
+
+tr:hover td {
+	background: #d0dafd;
+	color: #009;
+}
+
+#dashboard {
+	font-size: 20px;
+}
+
+</style>
+</head>
+
+<body>
+<center>
+From : <input id="fromDate" />
+To : <input id="toDate" />
+<button id="submit" onclick="process()">Go</button>
+<div id="container">
+</div>
+</center>
+<script>
+function process(){
+	d3.select("#container").html("");
+	grouping_expense = 
+	{
+		"categories":["rent","tuition","food","groceries","mobile","others"],
+		"values":[0,0,0,0,0,0]
+	};
+
+	grouping_income = 
+	{
+		"categories":["loan","remission","stipend","others"],
+		"values":[0,0,0,0]
+	};
+	
+	total_income = 0;
+	total_expense = 0;
+
+	expense_log = [];
+
+	if (document.getElementById('fromDate').value == "" || document.getElementById('toDate').value == "") {
+		expense_log = expense_log_raw;
+	}
+	else {
+		startDate = new Date(document.getElementById('fromDate').value);
+		endDate = new Date(document.getElementById('toDate').value);
+
+		var currDate = new Date();
+		for (i=0; i < expense_log_raw.length; i++) {
+			currDate = new Date(expense_log_raw[i][0]);
+			if (currDate >= startDate && currDate <= endDate) {
+				expense_log.push(expense_log_raw[i]);
+			}
+		}
+	}
+	for (i=0; i<expense_log.length; i++) {
+		if (expense_log[i][1]) {	
+			grouping_income.values[grouping_income.categories.indexOf(expense_log[i][2])] += expense_log[i][4];
+
+		}
+		else {
+			grouping_expense.values[grouping_expense.categories.indexOf(expense_log[i][2])] += expense_log[i][4];
+		}
+	}
+
+	for (i=0; i < grouping_expense.values.length; i++) {
+		grouping_expense.values[i] = parseFloat(grouping_expense.values[i].toFixed(2)); 
+		total_expense += grouping_expense.values[i];
+	}
+
+	for (i=0; i < grouping_income.values.length; i++) {
+		grouping_income.values[i] = parseFloat(grouping_income.values[i].toFixed(2)); 
+		total_income += grouping_income.values[i];
+	}
+
+	table = d3.select("#container").append("table").attr("id","dashboard");
+	thead = table.append("thead");
+	tbody = table.append("tbody");
+	thead.append("tr").selectAll("th").data(["Income", "Expense","Balance"]).enter().append("th").html(function(d) {return d;});
+	tbody.append("tr").selectAll("td").data(["$ "+total_income.toFixed(2),"$ "+total_expense.toFixed(2),"$ "+(total_income-total_expense).toFixed(2)]).enter().append("td").html(function(d) {return d;});
+
+	table = d3.select("#container").append("table");
+	thead = table.append("thead");
+	tbody = table.append("tbody");
+	thead.append("tr").selectAll("th").data(["Category", "Amount"]).enter().append("th").html(function(d) {return d;});
+	rows = tbody.selectAll("tr").data(grouping_income.categories).enter().append("tr").html(function(d,i) {
+		return "<td>"+d+"</td> <td align=\"right\">$ "+grouping_income.values[i].toFixed(2)+"</td>";});
+
+	table = d3.select("#container").append("table");
+	thead = table.append("thead");
+	tbody = table.append("tbody");
+	thead.append("tr").selectAll("th").data(["Category", "Amount"]).enter().append("th").html(function(d) {return d;});
+	rows = tbody.selectAll("tr").data(grouping_expense.categories).enter().append("tr").html(function(d,i) {
+		return "<td>"+d+"</td> <td align=\"right\">$ "+grouping_expense.values[i].toFixed(2)+"</td>";});
+
+	
+	
+	var color = d3.scale.category20();
+
+	var arc = d3.svg.arc()
+    	.outerRadius(200)
+    	.innerRadius(60);
+
+    var pie = d3.layout.pie().sort(null)
+    	.value(function(d) { return d;});
+
+	var width = 500;
+    var height = 500;
+    
+    var svg = d3.select("#container").append("svg")
+    	.attr("width", width)
+    	.attr("height", height)
+    	.append("g")
+    	.attr("transform", "translate(" + width/2 + "," + height/2 + ")");
+
+    var g = svg.selectAll(".arc")
+      .data(pie(grouping_expense.values)).enter().append("g").attr("class", "arc");
+     
+   	g.append("path")
+      .attr("d", arc)
+      .style("fill", function(d) {return color(grouping_expense.values.indexOf(d.value)); });
+
+    g.append("title").text(function(d) {return grouping_expense.categories[grouping_expense.values.indexOf(d.value)]+"  $"+d.value;});
+
+
+
+    var svg = d3.select("#container").append("svg")
+    	.attr("width", width)
+    	.attr("height", height)
+    	.append("g")
+    	.attr("transform", "translate(" + width/2 + "," + height/2 + ")");
+
+    var g = svg.selectAll(".arc")
+      .data(pie(grouping_income.values)).enter().append("g").attr("class", "arc");
+     
+   	g.append("path")
+      .attr("d", arc)
+      .style("fill", function(d) {return color(grouping_income.values.indexOf(d.value)); });
+
+    g.append("title").text(function(d) {return grouping_income.categories[grouping_income.values.indexOf(d.value)]+"  $"+d.value;});
+
+    var header=["Date","Category", "Description", "Type", "Amount"];
+    table = d3.select("#container").append("table");
+    thead = table.append("thead");
+    tbody = table.append("tbody");
+    thead.append("tr").selectAll("th").data(header).enter().append("th").html(function(d) {return d;});
+	rows = tbody.selectAll("tr").data(expense_log).enter().append("tr").html(function(d) {
+		if (d[1]) str="+"; else str="-"; 
+		return "<td>"+d[0]+"</td> <td>"+d[2]+"</td> <td>"+d[3]+"</td> <td>"+str+"</td> <td align=\"right\">$ "+d[4].toFixed(2)+"</td>";});
+}
+</script>
+</body>
+</html>
